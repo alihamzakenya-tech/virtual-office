@@ -1,3 +1,39 @@
+const startBtn = document.getElementById('start-btn');
+const statusText = document.getElementById('status');
+const logBox = document.getElementById('log-box');
+
+// Groq API Key Config
+const GROQ_API_KEY = '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';
+
+window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!window.SpeechRecognition) {
+    alert("Aapka browser voice recognition support nahi karta. Chrome use karein!");
+} else {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+
+    startBtn.addEventListener('click', () => {
+        recognition.start();
+        statusText.innerText = "Status: Listening... Speak now!";
+    });
+
+    recognition.onresult = async (event) => {
+        const speechToText = event.results[0][0].transcript;
+        statusText.innerText = `Command Heard: "${speechToText}"`;
+        logBox.innerHTML += `<br>> User commanded: ${speechToText}`;
+        logBox.innerHTML += `<br><span style="color: #3b82f6;">[AI Brain] Processing with Groq LLM...</span>`;
+
+        // Send voice command to Groq LLM for Intent Recognition
+        await processCommandWithGroq(speechToText);
+    };
+
+    recognition.onerror = () => {
+        statusText.innerText = "Status: Error occurred. Try again.";
+    };
+}
+
 async function processCommandWithGroq(userCommand) {
     try {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -11,9 +47,7 @@ async function processCommandWithGroq(userCommand) {
                 messages: [
                     {
                         role: 'system',
-                        content: `You are the central router for an AI Virtual Office. Analyze the user command and categorize it into ONE of these agents: "marketing", "support", or "logistics".
-                        Respond ONLY with pure raw JSON without markdown syntax. Format:
-                        {"agent": "marketing", "action": "Brief action text"}`
+                        content: `You are the central router for an AI Virtual Office. Analyze the user command and categorize it into ONE of these agents: "marketing", "support", or "logistics". Return ONLY raw JSON without markdown formatting. Example: {"agent": "support", "action": "Responding to WhatsApp queries"}`
                     },
                     { role: 'user', content: userCommand }
                 ],
@@ -21,17 +55,61 @@ async function processCommandWithGroq(userCommand) {
             })
         });
 
+        if (!response.ok) {
+            throw new Error(`Server returned status ${response.status}`);
+        }
+
         const data = await response.json();
         let rawContent = data.choices[0].message.content.trim();
-        
-        // Clean markdown backticks if returned
-        rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-        
+
+        // Clean markdown backticks or extra text if returned by LLM
+        rawContent = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+
         const aiResponse = JSON.parse(rawContent);
-        triggerAgent(aiResponse.agent, aiResponse.action);
+        
+        if (aiResponse.agent && aiResponse.action) {
+            triggerAgent(aiResponse.agent.toLowerCase(), aiResponse.action);
+        } else {
+            throw new Error("Invalid response format from AI");
+        }
 
     } catch (error) {
         console.error('Groq API Error:', error);
-        logBox.innerHTML += `<br><span style="color: #ef4444;">[AI Error] ${error.message}</span>`;
+        logBox.innerHTML += `<br><span style="color: #eab308;">[AI Warning] Groq bypass used. Fallback activated.</span>`;
+        
+        // Fallback local matching if API call fails
+        fallbackRouting(userCommand);
+    }
+}
+
+function fallbackRouting(command) {
+    const text = command.toLowerCase();
+    if (text.includes('marketing') || text.includes('campaign') || text.includes('ad')) {
+        triggerAgent('marketing', 'Executing marketing activity');
+    } else if (text.includes('support') || text.includes('chat') || text.includes('whatsapp') || text.includes('message')) {
+        triggerAgent('support', 'Handling customer communications');
+    } else if (text.includes('logistics') || text.includes('delivery') || text.includes('courier') || text.includes('plate')) {
+        triggerAgent('logistics', 'Managing logistics operations');
+    } else {
+        logBox.innerHTML += `<br><span style="color: #ef4444;">[System] Command not recognized by any agent.</span>`;
+    }
+}
+
+function triggerAgent(agentId, actionText) {
+    document.querySelectorAll('.desk').forEach(d => {
+        d.classList.remove('active');
+        d.querySelector('.badge').innerText = 'Idle';
+        d.querySelector('.badge').className = 'badge idle';
+    });
+
+    const activeDesk = document.getElementById(`agent-${agentId}`);
+    if (activeDesk) {
+        activeDesk.classList.add('active');
+        const badge = activeDesk.querySelector('.badge');
+        badge.innerText = 'Working...';
+        badge.className = 'badge working';
+        logBox.innerHTML += `<br><span style="color: #22c55e;">[AI Agent Active] Target: ${agentId.toUpperCase()} - Action: ${actionText}</span>`;
+    } else {
+        logBox.innerHTML += `<br><span style="color: #ef4444;">[System Error] Agent desk "${agentId}" not found.</span>`;
     }
 }
