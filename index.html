@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Virtual Office</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="office-container">
+        <h1>Virtual AI Command Center</h1>
+
+        <div class="control-panel">
+            <button id="start-btn">🎤 Speak Command</button>
+            <p id="status">Status: Waiting for command...</p>
+        </div>
+
+        <div class="floor">
+            <div class="desk" id="agent-marketing">
+                <div class="avatar">👨‍💻</div>
+                <h3>Marketing Agent</h3>
+                <span class="badge idle">Idle</span>
+            </div>
+
+            <div class="desk" id="agent-support">
+                <div class="avatar">👩‍💻</div>
+                <h3>Support Agent</h3>
+                <span class="badge idle">Idle</span>
+            </div>
+
+            <div class="desk" id="agent-logistics">
+                <div class="avatar">🤖</div>
+                <h3>Logistics Agent</h3>
+                <span class="badge idle">Idle</span>
+            </div>
+        </div>
+
+        <div class="terminal">
+            <h3>Activity Log:</h3>
+            <div id="log-box">Office is online and ready...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
