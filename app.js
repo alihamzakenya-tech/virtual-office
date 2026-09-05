@@ -1,115 +1,108 @@
-const startBtn = document.getElementById('start-btn');
-const statusText = document.getElementById('status');
-const logBox = document.getElementById('log-box');
+// Desk DOM elements
+const marketingDesk = document.getElementById('marketing-desk');
+const supportDesk = document.getElementById('support-desk');
+const logisticsDesk = document.getElementById('logistics-desk');
+const statusText = document.getElementById('status-text');
+const activityLog = document.getElementById('activity-log');
 
-// Groq API Key Config
-const GROQ_API_KEY = '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';
+// Speech Recognition Setup
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
+recognition.continuous = false;
+recognition.lang = 'en-US';
 
-window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-if (!window.SpeechRecognition) {
-    alert("Aapka browser voice recognition support nahi karta. Chrome use karein!");
-} else {
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'en-US';
-
-    startBtn.addEventListener('click', () => {
-        recognition.start();
-        statusText.innerText = "Status: Listening... Speak now!";
-    });
-
-    recognition.onresult = async (event) => {
-        const speechToText = event.results[0][0].transcript;
-        statusText.innerText = `Command Heard: "${speechToText}"`;
-        logBox.innerHTML += `<br>> User commanded: ${speechToText}`;
-        logBox.innerHTML += `<br><span style="color: #3b82f6;">[AI Brain] Processing with Groq LLM...</span>`;
-
-        // Send voice command to Groq LLM for Intent Recognition
-        await processCommandWithGroq(speechToText);
-    };
-
-    recognition.onerror = () => {
-        statusText.innerText = "Status: Error occurred. Try again.";
-    };
+function logActivity(message) {
+    const logItem = document.createElement('div');
+    logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    activityLog.prepend(logItem);
 }
 
-async function processCommandWithGroq(userCommand) {
+function clearActiveDesks() {
+    marketingDesk.classList.remove('active');
+    supportDesk.classList.remove('active');
+    logisticsDesk.classList.remove('active');
+}
+
+// Secure Serverless Groq Router API Call
+async function sendToGroq(prompt) {
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${GROQ_API_KEY}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    {
-                        role: 'system',
-                        content: `You are the central router for an AI Virtual Office. Analyze the user command and categorize it into ONE of these agents: "marketing", "support", or "logistics". Return ONLY raw JSON without markdown formatting. Example: {"agent": "support", "action": "Responding to WhatsApp queries"}`
-                    },
-                    { role: 'user', content: userCommand }
-                ],
-                temperature: 0.1
-            })
+            body: JSON.stringify({ prompt: prompt })
         });
 
         if (!response.ok) {
-            throw new Error(`Server returned status ${response.status}`);
+            throw new Error(`Server response error: ${response.status}`);
         }
 
         const data = await response.json();
-        let rawContent = data.choices[0].message.content.trim();
-
-        // Clean markdown backticks or extra text if returned by LLM
-        rawContent = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-        const aiResponse = JSON.parse(rawContent);
         
-        if (aiResponse.agent && aiResponse.action) {
-            triggerAgent(aiResponse.agent.toLowerCase(), aiResponse.action);
-        } else {
-            throw new Error("Invalid response format from AI");
-        }
-
+        // Clean markdown blocks if Groq wraps response in ```json ... ```
+        const rawContent = data.choices[0].message.content;
+        const cleanedJSON = rawContent.replace(/```json|```/g, '').trim();
+        return JSON.parse(cleanedJSON);
     } catch (error) {
-        console.error('Groq API Error:', error);
-        logBox.innerHTML += `<br><span style="color: #eab308;">[AI Warning] Groq bypass used. Fallback activated.</span>`;
+        console.error('Groq Router Error:', error);
+        throw error;
+    }
+}
+
+// Voice Command Listener
+function startListening() {
+    clearActiveDesks();
+    statusText.textContent = 'Listening for command...';
+    logActivity('Voice recognition started.');
+    recognition.start();
+}
+
+recognition.onresult = async (event) => {
+    const transcript = event.results[0][0].transcript;
+    statusText.textContent = `Processing: "${transcript}"`;
+    logActivity(`Voice Input: "${transcript}"`);
+
+    const routingPrompt = `
+You are the AI Routing Director of a Virtual Office. 
+Categorize the following user voice command into one of three departments: 'marketing', 'support', or 'logistics'.
+
+Provide a JSON output matching this schema:
+{
+  "target_desk": "marketing" | "support" | "logistics",
+  "action_summary": "Brief explanation of what needs to be done",
+  "confidence": number
+}
+
+User Voice Command: "${transcript}"
+`;
+
+    try {
+        const result = await sendToGroq(routingPrompt);
+        logActivity(`Routed to ${result.target_desk.toUpperCase()} desk. Summary: ${result.action_summary}`);
         
-        // Fallback local matching if API call fails
-        fallbackRouting(userCommand);
+        statusText.textContent = `Command routed to ${result.target_desk.toUpperCase()}`;
+        
+        if (result.target_desk === 'marketing') {
+            marketingDesk.classList.add('active');
+        } else if (result.target_desk === 'support') {
+            supportDesk.classList.add('active');
+        } else if (result.target_desk === 'logistics') {
+            logisticsDesk.classList.add('active');
+        }
+    } catch (err) {
+        statusText.textContent = 'Failed to route command. Check console logs.';
+        logActivity('Routing Error: Could not connect to backend serverless function.');
     }
-}
+};
 
-function fallbackRouting(command) {
-    const text = command.toLowerCase();
-    if (text.includes('marketing') || text.includes('campaign') || text.includes('ad')) {
-        triggerAgent('marketing', 'Executing marketing activity');
-    } else if (text.includes('support') || text.includes('chat') || text.includes('whatsapp') || text.includes('message')) {
-        triggerAgent('support', 'Handling customer communications');
-    } else if (text.includes('logistics') || text.includes('delivery') || text.includes('courier') || text.includes('plate')) {
-        triggerAgent('logistics', 'Managing logistics operations');
-    } else {
-        logBox.innerHTML += `<br><span style="color: #ef4444;">[System] Command not recognized by any agent.</span>`;
+recognition.onerror = (event) => {
+    statusText.textContent = 'Speech recognition error. Try again.';
+    logActivity(`Speech Error: ${event.error}`);
+};
+
+recognition.onend = () => {
+    if (statusText.textContent === 'Listening for command...') {
+        statusText.textContent = 'Waiting for command...';
     }
-}
-
-function triggerAgent(agentId, actionText) {
-    document.querySelectorAll('.desk').forEach(d => {
-        d.classList.remove('active');
-        d.querySelector('.badge').innerText = 'Idle';
-        d.querySelector('.badge').className = 'badge idle';
-    });
-
-    const activeDesk = document.getElementById(`agent-${agentId}`);
-    if (activeDesk) {
-        activeDesk.classList.add('active');
-        const badge = activeDesk.querySelector('.badge');
-        badge.innerText = 'Working...';
-        badge.className = 'badge working';
-        logBox.innerHTML += `<br><span style="color: #22c55e;">[AI Agent Active] Target: ${agentId.toUpperCase()} - Action: ${actionText}</span>`;
-    } else {
-        logBox.innerHTML += `<br><span style="color: #ef4444;">[System Error] Agent desk "${agentId}" not found.</span>`;
-    }
-}
+};
