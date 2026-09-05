@@ -4,6 +4,7 @@ const supportDesk = document.getElementById('support-desk');
 const logisticsDesk = document.getElementById('logistics-desk');
 const statusText = document.getElementById('status-text');
 const activityLog = document.getElementById('activity-log');
+const startBtn = document.querySelector('button') || document.getElementById('start-btn');
 
 // Speech Recognition Setup
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -12,15 +13,16 @@ recognition.continuous = false;
 recognition.lang = 'en-US';
 
 function logActivity(message) {
+    if (!activityLog) return;
     const logItem = document.createElement('div');
     logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     activityLog.prepend(logItem);
 }
 
 function clearActiveDesks() {
-    marketingDesk.classList.remove('active');
-    supportDesk.classList.remove('active');
-    logisticsDesk.classList.remove('active');
+    marketingDesk?.classList.remove('active');
+    supportDesk?.classList.remove('active');
+    logisticsDesk?.classList.remove('active');
 }
 
 // Secure Serverless Groq Router API Call
@@ -39,8 +41,6 @@ async function sendToGroq(prompt) {
         }
 
         const data = await response.json();
-        
-        // Clean markdown blocks if Groq wraps response in ```json ... ```
         const rawContent = data.choices[0].message.content;
         const cleanedJSON = rawContent.replace(/```json|```/g, '').trim();
         return JSON.parse(cleanedJSON);
@@ -50,17 +50,26 @@ async function sendToGroq(prompt) {
     }
 }
 
-// Voice Command Listener
+// Voice Command Start Function
 function startListening() {
     clearActiveDesks();
-    statusText.textContent = 'Listening for command...';
+    if (statusText) statusText.textContent = 'Status: Listening... Speak now!';
     logActivity('Voice recognition started.');
-    recognition.start();
+    try {
+        recognition.start();
+    } catch (e) {
+        console.log('Recognition already running');
+    }
+}
+
+// Button Click Event Listener
+if (startBtn) {
+    startBtn.addEventListener('click', startListening);
 }
 
 recognition.onresult = async (event) => {
     const transcript = event.results[0][0].transcript;
-    statusText.textContent = `Processing: "${transcript}"`;
+    if (statusText) statusText.textContent = `Processing: "${transcript}"`;
     logActivity(`Voice Input: "${transcript}"`);
 
     const routingPrompt = `
@@ -81,28 +90,28 @@ User Voice Command: "${transcript}"
         const result = await sendToGroq(routingPrompt);
         logActivity(`Routed to ${result.target_desk.toUpperCase()} desk. Summary: ${result.action_summary}`);
         
-        statusText.textContent = `Command routed to ${result.target_desk.toUpperCase()}`;
+        if (statusText) statusText.textContent = `Command routed to ${result.target_desk.toUpperCase()}`;
         
-        if (result.target_desk === 'marketing') {
+        if (result.target_desk === 'marketing' && marketingDesk) {
             marketingDesk.classList.add('active');
-        } else if (result.target_desk === 'support') {
+        } else if (result.target_desk === 'support' && supportDesk) {
             supportDesk.classList.add('active');
-        } else if (result.target_desk === 'logistics') {
+        } else if (result.target_desk === 'logistics' && logisticsDesk) {
             logisticsDesk.classList.add('active');
         }
     } catch (err) {
-        statusText.textContent = 'Failed to route command. Check console logs.';
+        if (statusText) statusText.textContent = 'Failed to route command. Check console logs.';
         logActivity('Routing Error: Could not connect to backend serverless function.');
     }
 };
 
 recognition.onerror = (event) => {
-    statusText.textContent = 'Speech recognition error. Try again.';
+    if (statusText) statusText.textContent = 'Speech recognition error. Try again.';
     logActivity(`Speech Error: ${event.error}`);
 };
 
 recognition.onend = () => {
-    if (statusText.textContent === 'Listening for command...') {
-        statusText.textContent = 'Waiting for command...';
+    if (statusText && statusText.textContent.includes('Listening')) {
+        statusText.textContent = 'Status: Waiting for command...';
     }
 };
