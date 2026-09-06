@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'Groq API Key is missing in environment variables.' });
+        return res.status(500).json({ error: 'Groq API Key is missing in Vercel environment variables.' });
     }
 
     try {
@@ -19,14 +19,28 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' }
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are an AI routing backend. Always return raw JSON in the schema: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "string"}. Do not add any extra text or markdown.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.1
             })
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+            return res.status(response.status).json({ error: data.error?.message || 'Error from Groq API' });
+        }
+
         return res.status(200).json(data);
     } catch (error) {
-        return res.status(500).json({ error: 'Failed to process request via Groq serverless function' });
+        return res.status(500).json({ error: 'Serverless execution failed: ' + error.message });
     }
 }
