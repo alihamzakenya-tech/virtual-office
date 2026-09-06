@@ -18,20 +18,15 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'mixtral-8x7b-32768',
+                model: 'llama-3.3-70b-versatile',
                 messages: [
                     {
+                        role: 'system',
+                        content: 'You are an AI Routing Director. Respond ONLY with valid JSON in this schema without any markdown formatting or code blocks: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "string"}'
+                    },
+                    {
                         role: 'user',
-                        content: `You are an AI Routing Director of a Virtual Office.
-Categorize this command into one of these departments: 'marketing', 'support', or 'logistics'.
-
-Return ONLY raw JSON with no Markdown or text wrappers in this schema:
-{
-  "target_desk": "marketing" | "support" | "logistics",
-  "action_summary": "Short explanation of action"
-}
-
-User Command: "${prompt}"`
+                        content: prompt
                     }
                 ],
                 temperature: 0.1
