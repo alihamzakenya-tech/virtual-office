@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'Groq API Key is missing in Vercel environment variables.' });
+        return res.status(500).json({ error: 'Groq API Key missing in environment variables.' });
     }
 
     try {
@@ -18,15 +18,20 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
+                model: 'llama3-8b-8192',
                 messages: [
                     {
-                        role: 'system',
-                        content: 'You are an AI routing backend. Always return raw JSON in the schema: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "string"}. Do not add any extra text or markdown.'
-                    },
-                    {
                         role: 'user',
-                        content: prompt
+                        content: `You are an AI Routing Director of a Virtual Office.
+Categorize this command into one of these departments: 'marketing', 'support', or 'logistics'.
+
+Return ONLY raw JSON with no Markdown or text wrappers in this schema:
+{
+  "target_desk": "marketing" | "support" | "logistics",
+  "action_summary": "Short explanation of action"
+}
+
+User Command: "${prompt}"`
                     }
                 ],
                 temperature: 0.1
@@ -36,7 +41,7 @@ export default async function handler(req, res) {
         const data = await response.json();
 
         if (!response.ok) {
-            return res.status(response.status).json({ error: data.error?.message || 'Error from Groq API' });
+            return res.status(response.status).json({ error: data.error?.message || 'Error response from Groq API' });
         }
 
         return res.status(200).json(data);
