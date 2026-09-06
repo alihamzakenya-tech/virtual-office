@@ -52,38 +52,30 @@ function highlightDesk(deskType) {
 
 // Send Command to Vercel Serverless Function (Groq API)
 async function sendToGroq(commandText) {
-    const routingPrompt = `
-You are the AI Routing Director of a Virtual Office. 
-Categorize the user command into exactly one of these departments: 'marketing', 'support', or 'logistics'.
-
-Return ONLY valid JSON in this exact format without any markdown wrappers or extra text:
-{
-  "target_desk": "marketing",
-  "action_summary": "Brief explanation of what action should be taken"
-}
-
-User Command: "${commandText}"
-`;
-
     const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: routingPrompt })
+        body: JSON.stringify({ prompt: commandText })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-        throw new Error(`Server returned HTTP status ${response.status}`);
+        throw new Error(data.error || `Server error ${response.status}`);
     }
 
-    const data = await response.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid response structure received from API serverless function.');
+    }
+
     let rawContent = data.choices[0].message.content;
 
-    // Clean JSON response
-    rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Clean Markdown block wrapper if present
+    rawContent = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
     return JSON.parse(rawContent);
 }
 
-// Process Command Function (Shared for Voice & Text)
+// Process Command Function
 async function processCommand(command) {
     if (!command) return;
 
