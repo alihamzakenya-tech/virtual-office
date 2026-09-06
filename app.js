@@ -1,7 +1,9 @@
 // DOM Elements
 const startBtn = document.getElementById('start-btn');
+const sendTextBtn = document.getElementById('send-text-btn');
+const textCommandInput = document.getElementById('text-command');
 const statusText = document.getElementById('status');
-const activityLog = document.getElementById('activity-log') || document.querySelector('.terminal');
+const activityLog = document.getElementById('activity-log');
 
 // Speech Recognition Setup
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -11,86 +13,131 @@ if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.lang = 'en-US';
-} else {
-    alert("Aapka browser Speech Recognition support nahi karta. Please Google Chrome use karein!");
 }
 
+// Log Activity to Terminal
 function logActivity(message) {
     if (!activityLog) return;
     const logItem = document.createElement('div');
+    logItem.className = 'log-entry';
     logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     activityLog.prepend(logItem);
 }
 
+// Reset Active UI Desks
 function clearActiveDesks() {
-    document.querySelectorAll('.agent-card, .desk').forEach(desk => desk.classList.remove('active'));
+    document.querySelectorAll('.agent-card').forEach(desk => {
+        desk.classList.remove('active');
+    });
+    document.querySelectorAll('.badge').forEach(badge => {
+        badge.textContent = 'Idle';
+        badge.style.backgroundColor = '#334155';
+        badge.style.color = '#cbd5e1';
+    });
 }
 
-// Groq API Routing Request
-async function sendToGroq(prompt) {
+// Highlight Selected Agent Card
+function highlightDesk(deskType) {
+    clearActiveDesks();
+    const targetDesk = document.getElementById(`desk-${deskType}`);
+    const targetBadge = document.getElementById(`badge-${deskType}`);
+
+    if (targetDesk && targetBadge) {
+        targetDesk.classList.add('active');
+        targetBadge.textContent = 'Active Processing';
+        targetBadge.style.backgroundColor = '#0284c7';
+        targetBadge.style.color = '#ffffff';
+    }
+}
+
+// Send Command to Vercel Serverless Function (Groq API)
+async function sendToGroq(commandText) {
+    const routingPrompt = `
+You are the AI Routing Director of a Virtual Office. 
+Categorize the user command into exactly one of these departments: 'marketing', 'support', or 'logistics'.
+
+Return ONLY valid JSON in this exact format without any markdown wrappers or extra text:
+{
+  "target_desk": "marketing",
+  "action_summary": "Brief explanation of what action should be taken"
+}
+
+User Command: "${commandText}"
+`;
+
     const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt })
+        body: JSON.stringify({ prompt: routingPrompt })
     });
 
     if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        throw new Error(`Server returned HTTP status ${response.status}`);
     }
 
     const data = await response.json();
-    const rawContent = data.choices[0].message.content;
-    const cleanedJSON = rawContent.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleanedJSON);
+    let rawContent = data.choices[0].message.content;
+
+    // Clean JSON response
+    rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(rawContent);
 }
 
-// Event Listener for Speak Command Button
+// Process Command Function (Shared for Voice & Text)
+async function processCommand(command) {
+    if (!command) return;
+
+    clearActiveDesks();
+    if (statusText) statusText.textContent = `Status: Processing "${command}"...`;
+    logActivity(`Command Received: "${command}"`);
+
+    try {
+        const result = await sendToGroq(command);
+        const desk = result.target_desk ? result.target_desk.toLowerCase() : 'support';
+        
+        highlightDesk(desk);
+        logActivity(`Routed to ${desk.toUpperCase()}: ${result.action_summary}`);
+        
+        if (statusText) {
+            statusText.textContent = `Status: Command successfully routed to ${desk.toUpperCase()}`;
+        }
+    } catch (err) {
+        console.error('Routing Error:', err);
+        if (statusText) statusText.textContent = 'Status: Failed to process command.';
+        logActivity(`Error: ${err.message || 'Routing failed'}`);
+    }
+}
+
+// Event Listener for Voice Command Button
 if (startBtn) {
     startBtn.addEventListener('click', () => {
-        if (!recognition) return;
+        if (!recognition) {
+            alert("Aapka browser Web Speech API support nahi karta. Text input use karein.");
+            return;
+        }
+
         clearActiveDesks();
         if (statusText) statusText.textContent = 'Status: Listening... Speak now!';
         logActivity('Voice recognition started.');
-        
+
         try {
             recognition.start();
         } catch (e) {
-            console.log('Recognition active:', e);
+            console.log('Recognition already active:', e);
         }
     });
 }
 
+// Speech Recognition Callbacks
 if (recognition) {
-    recognition.onresult = async (event) => {
+    recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        if (statusText) statusText.textContent = `Status: Processing "${transcript}"`;
-        logActivity(`Voice Input: "${transcript}"`);
-
-        const routingPrompt = `
-You are the AI Routing Director of a Virtual Office. 
-Categorize the user command into: 'marketing', 'support', or 'logistics'.
-
-Return JSON only:
-{
-  "target_desk": "marketing" | "support" | "logistics",
-  "action_summary": "Brief summary of action"
-}
-
-User Command: "${transcript}"
-`;
-
-        try {
-            const result = await sendToGroq(routingPrompt);
-            logActivity(`Routed to ${result.target_desk.toUpperCase()}: ${result.action_summary}`);
-            if (statusText) statusText.textContent = `Status: Command routed to ${result.target_desk.toUpperCase()}`;
-        } catch (err) {
-            if (statusText) statusText.textContent = 'Status: Failed to route command.';
-            logActivity('Routing Error: Check serverless backend execution.');
-        }
+        processCommand(transcript);
     };
 
     recognition.onerror = (event) => {
-        if (statusText) statusText.textContent = `Status: Error (${event.error})`;
+        console.error('Speech Recognition Error:', event.error);
+        if (statusText) statusText.textContent = `Status: Speech Error (${event.error})`;
         logActivity(`Speech Error: ${event.error}`);
     };
 
@@ -99,4 +146,25 @@ User Command: "${transcript}"
             statusText.textContent = 'Status: Waiting for command...';
         }
     };
+}
+
+// Event Listener for Text Command Button
+if (sendTextBtn && textCommandInput) {
+    sendTextBtn.addEventListener('click', () => {
+        const command = textCommandInput.value.trim();
+        if (command) {
+            processCommand(command);
+            textCommandInput.value = '';
+        }
+    });
+
+    textCommandInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const command = textCommandInput.value.trim();
+            if (command) {
+                processCommand(command);
+                textCommandInput.value = '';
+            }
+        }
+    });
 }
