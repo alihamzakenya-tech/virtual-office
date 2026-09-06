@@ -7,41 +7,57 @@ export default async function handler(req, res) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'Groq API Key missing in Vercel environment variables.' });
+        return res.status(500).json({ error: 'Groq API Key missing in environment variables.' });
     }
 
-    try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages: [
-                    {
-                        role: 'user',
-                        content: `You are an AI Routing Director. Categorize this command into one department: 'marketing', 'support', or 'logistics'.
+    // List of active candidate models to try sequentially
+    const candidateModels = [
+        'llama-3.1-8b-instant',
+        'llama-3.3-70b-versatile',
+        'openai/gpt-oss-20b'
+    ];
 
-Return ONLY valid raw JSON with this exact structure:
-{"target_desk": "marketing", "action_summary": "Action description"}
+    let lastError = null;
 
-Command: "${prompt}"`
-                    }
-                ],
-                temperature: 0.1
-            })
-        });
+    for (const modelName of candidateModels) {
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are an AI Routing Director. Categorize the user prompt into one desk: "marketing", "support", or "logistics". Respond ONLY with valid raw JSON object matching schema: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "short explanation"}. Do not add backticks or formatting.'
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    temperature: 0.1
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!response.ok) {
-            return res.status(response.status).json({ error: data.error?.message || 'Groq API error' });
+            if (response.ok && data.choices && data.choices.length > 0) {
+                // Successfully received response from Groq
+                return res.status(200).json(data);
+            } else {
+                lastError = data.error?.message || `Model ${modelName} returned status ${response.status}`;
+            }
+        } catch (err) {
+            lastError = err.message;
         }
-
-        return res.status(200).json(data);
-    } catch (error) {
-        return res.status(500).json({ error: 'Serverless execution failed: ' + error.message });
     }
+
+    // If all models in the fallback loop failed
+    return res.status(500).json({ 
+        error: `All candidate models failed. Last error: ${lastError}` 
+    });
 }
