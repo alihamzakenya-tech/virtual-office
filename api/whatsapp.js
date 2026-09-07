@@ -48,7 +48,7 @@ export default async function handler(req, res) {
             if (aiData.candidates && aiData.candidates.length > 0) {
               replyText = aiData.candidates[0].content.parts[0].text;
             } else {
-              replyText = 'Gemini API Error: ' + JSON.stringify(aiData);
+              replyText = 'Gemini API Response: ' + JSON.stringify(aiData);
             }
           }
         } catch (apiErr) {
