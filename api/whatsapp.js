@@ -25,27 +25,31 @@ export default async function handler(req, res) {
         let replyText = '';
 
         try {
-          const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY;
-          const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: `You are a professional AI virtual assistant for marketing and logistics. Reply clearly and helpfully to: ${userMsg}` }]
-                }
-              ]
-            })
-          });
-
-          const aiData = await aiResponse.json();
-          if (aiData.candidates && aiData.candidates.length > 0) {
-            replyText = aiData.candidates[0].content.parts[0].text;
+          const apiKey = process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY;
+          if (!apiKey) {
+            replyText = 'Configuration Error: API Key is missing in Vercel settings.';
           } else {
-            replyText = 'Gemini Error: ' + JSON.stringify(aiData);
+            const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [{ text: `You are a professional AI virtual assistant for marketing and logistics. Reply clearly and helpfully to: ${userMsg}` }]
+                  }
+                ]
+              })
+            });
+
+            const aiData = await aiResponse.json();
+            if (aiData.candidates && aiData.candidates.length > 0) {
+              replyText = aiData.candidates[0].content.parts[0].text;
+            } else {
+              replyText = 'Gemini API Error: ' + JSON.stringify(aiData);
+            }
           }
         } catch (apiErr) {
           replyText = 'Fetch Error: ' + apiErr.message;
