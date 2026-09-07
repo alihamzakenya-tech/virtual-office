@@ -16,10 +16,14 @@ if (SpeechRecognition) {
 }
 
 // Log Activity to Terminal
-function logActivity(message) {
+function logActivity(message, isAgentResponse = false) {
     if (!activityLog) return;
     const logItem = document.createElement('div');
     logItem.className = 'log-entry';
+    if (isAgentResponse) {
+        logItem.style.color = '#4ade80'; // Green accent for Agent responses
+        logItem.style.fontWeight = 'bold';
+    }
     logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     activityLog.prepend(logItem);
 }
@@ -50,7 +54,7 @@ function highlightDesk(deskType) {
     }
 }
 
-// Send Command to Vercel Serverless Function (Groq API)
+// Send Command to Vercel Serverless Function
 async function sendToGroq(commandText) {
     const response = await fetch('/api/chat', {
         method: 'POST',
@@ -65,12 +69,12 @@ async function sendToGroq(commandText) {
     }
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid response structure received from API serverless function.');
+        throw new Error('Invalid response structure received from serverless backend.');
     }
 
     let rawContent = data.choices[0].message.content;
 
-    // Clean Markdown block wrapper if present
+    // Clean JSON response wrappers
     rawContent = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
     return JSON.parse(rawContent);
 }
@@ -90,8 +94,12 @@ async function processCommand(command) {
         highlightDesk(desk);
         logActivity(`Routed to ${desk.toUpperCase()}: ${result.action_summary}`);
         
+        if (result.agent_response) {
+            logActivity(`AGENT RESPONSE (${desk.toUpperCase()}): "${result.agent_response}"`, true);
+        }
+
         if (statusText) {
-            statusText.textContent = `Status: Command successfully routed to ${desk.toUpperCase()}`;
+            statusText.textContent = `Status: Command routed to ${desk.toUpperCase()} & executed.`;
         }
     } catch (err) {
         console.error('Routing Error:', err);
@@ -104,7 +112,7 @@ async function processCommand(command) {
 if (startBtn) {
     startBtn.addEventListener('click', () => {
         if (!recognition) {
-            alert("Aapka browser Web Speech API support nahi karta. Text input use karein.");
+            alert("Browser Web Speech API support nahi karta. Text input use karein.");
             return;
         }
 
@@ -115,7 +123,7 @@ if (startBtn) {
         try {
             recognition.start();
         } catch (e) {
-            console.log('Recognition already active:', e);
+            console.log('Recognition active:', e);
         }
     });
 }
