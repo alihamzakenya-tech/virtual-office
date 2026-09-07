@@ -29,9 +29,9 @@ export default async function handler(req, res) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'llama-3.1-70b-versatile',
+            model: 'llama3-8b-8192',
             messages: [
-              { role: 'system', content: 'You are a helpful professional AI virtual assistant for marketing and logistics.' },
+              { role: 'system', content: 'You are a helpful AI assistant for marketing, support, and logistics.' },
               { role: 'user', content: userMsg }
             ]
           })
