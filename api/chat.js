@@ -10,7 +10,6 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Groq API Key missing in environment variables.' });
     }
 
-    // List of active candidate models to try sequentially
     const candidateModels = [
         'llama-3.1-8b-instant',
         'llama-3.3-70b-versatile',
@@ -32,7 +31,7 @@ export default async function handler(req, res) {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are an AI Routing Director. Categorize the user prompt into one desk: "marketing", "support", or "logistics". Respond ONLY with valid raw JSON object matching schema: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "short explanation"}. Do not add backticks or formatting.'
+                            content: 'You are an AI Routing Director. Categorize the user prompt into one desk: "marketing", "support", or "logistics". Also provide a professional, helpful execution response or draft text. Respond ONLY with valid raw JSON object matching schema: {"target_desk": "marketing" | "support" | "logistics", "action_summary": "short explanation", "agent_response": "Detailed draft or response from the agent"}. Do not add backticks or markdown formatting.'
                         },
                         {
                             role: 'user',
@@ -46,7 +45,6 @@ export default async function handler(req, res) {
             const data = await response.json();
 
             if (response.ok && data.choices && data.choices.length > 0) {
-                // Successfully received response from Groq
                 return res.status(200).json(data);
             } else {
                 lastError = data.error?.message || `Model ${modelName} returned status ${response.status}`;
@@ -56,7 +54,6 @@ export default async function handler(req, res) {
         }
     }
 
-    // If all models in the fallback loop failed
     return res.status(500).json({ 
         error: `All candidate models failed. Last error: ${lastError}` 
     });
