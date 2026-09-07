@@ -22,7 +22,6 @@ export default async function handler(req, res) {
         const from = message.from;
         const userMsg = message.text.body;
 
-        // Call Groq API with Llama-3.3-70b
         const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -32,17 +31,16 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',
             messages: [
-              { 
-                role: 'system', 
-                content: 'You are a professional AI Virtual Assistant handling customer inquiries regarding marketing, support, and logistics. Keep your responses clear, concise, and professional.' 
-              },
+              { role: 'system', content: 'You are a helpful AI assistant for marketing and logistics.' },
               { role: 'user', content: userMsg }
             ]
           })
         });
 
         const aiData = await aiResponse.json();
-        const replyText = aiData.choices?.[0]?.message?.content || 'I am processing your request.';
+        console.log('Groq API Response:', JSON.stringify(aiData));
+
+        const replyText = aiData.choices?.[0]?.message?.content || JSON.stringify(aiData);
 
         const waToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
         await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
