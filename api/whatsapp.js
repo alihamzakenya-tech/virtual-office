@@ -25,26 +25,27 @@ export default async function handler(req, res) {
         let replyText = '';
 
         try {
-          const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY;
+          const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: 'llama-3.1-8b-instant',
-              messages: [
-                { role: 'system', content: 'You are a professional AI virtual assistant for marketing and logistics. Keep replies clear and helpful.' },
-                { role: 'user', content: userMsg }
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: `You are a professional AI virtual assistant for marketing and logistics. Reply clearly and helpfully to: ${userMsg}` }]
+                }
               ]
             })
           });
 
           const aiData = await aiResponse.json();
-          if (aiData.choices && aiData.choices.length > 0) {
-            replyText = aiData.choices[0].message.content;
+          if (aiData.candidates && aiData.candidates.length > 0) {
+            replyText = aiData.candidates[0].content.parts[0].text;
           } else {
-            replyText = 'Groq Error: ' + JSON.stringify(aiData);
+            replyText = 'Gemini Error: ' + JSON.stringify(aiData);
           }
         } catch (apiErr) {
           replyText = 'Fetch Error: ' + apiErr.message;
