@@ -49,10 +49,11 @@ export default async function handler(req, res) {
           const replyText = aiData.choices?.[0]?.message?.content || 'Sorry, I could not process your request.';
 
           // Send message reply back to WhatsApp
-          await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+          const waToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
+          const waResponse = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+              'Authorization': `Bearer ${waToken}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -62,8 +63,11 @@ export default async function handler(req, res) {
             })
           });
 
+          const waResponseData = await waResponse.json();
+          console.log('WhatsApp API Response:', waResponseData);
+
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('Detailed Error processing message:', error.message || error);
         }
       }
 
