@@ -26,16 +26,15 @@ export default async function handler(req, res) {
 
         try {
           const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            model: 'llama3-8b-8192',
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: 'llama3-8b-8192',
+              model: 'llama-3.1-8b-instant',
               messages: [
-                { role: 'system', content: 'You are a helpful AI assistant.' },
+                { role: 'system', content: 'You are a helpful AI assistant for marketing and logistics.' },
                 { role: 'user', content: userMsg }
               ]
             })
