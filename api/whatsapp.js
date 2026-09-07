@@ -22,23 +22,34 @@ export default async function handler(req, res) {
         const from = message.from;
         const userMsg = message.text.body;
 
-        const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'llama3-8b-8192',
-            messages: [
-              { role: 'system', content: 'You are a helpful AI assistant for marketing, support, and logistics.' },
-              { role: 'user', content: userMsg }
-            ]
-          })
-        });
+        let replyText = '';
 
-        const aiData = await aiResponse.json();
-        const replyText = aiData.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
+        try {
+          const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            model: 'llama3-8b-8192',
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'llama3-8b-8192',
+              messages: [
+                { role: 'system', content: 'You are a helpful AI assistant.' },
+                { role: 'user', content: userMsg }
+              ]
+            })
+          });
+
+          const aiData = await aiResponse.json();
+          if (aiData.choices && aiData.choices.length > 0) {
+            replyText = aiData.choices[0].message.content;
+          } else {
+            replyText = 'Groq Error: ' + JSON.stringify(aiData);
+          }
+        } catch (apiErr) {
+          replyText = 'Fetch Error: ' + apiErr.message;
+        }
 
         const waToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
         await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
@@ -57,7 +68,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ status: 'EVENT_RECEIVED' });
     } catch (error) {
-      console.error('Error processing AI response:', error);
+      console.error('Fatal Error:', error);
       return res.status(200).json({ status: 'ERROR' });
     }
   }
