@@ -18,9 +18,6 @@ export default async function handler(req, res) {
       const value = changes?.value;
       const message = value?.messages?.[0];
 
-      // Always return 200 to Meta immediately so it doesn't retry endlessly
-      res.status(200).json({ status: 'EVENT_RECEIVED' });
-
       if (message && message.type === 'text') {
         const from = message.from;
         const userMsg = message.text.body;
@@ -57,10 +54,12 @@ export default async function handler(req, res) {
           })
         });
       }
+
+      return res.status(200).json({ status: 'EVENT_RECEIVED' });
     } catch (error) {
-      console.error('Background Processing Error:', error);
+      console.error('Error processing webhook:', error);
+      return res.status(200).json({ status: 'ERROR' });
     }
-    return;
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
