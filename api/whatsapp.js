@@ -46,6 +46,12 @@ export default async function handler(req, res) {
           });
 
           const aiData = await aiResponse.json();
+          
+          // Log Groq error if API call fails
+          if (!aiResponse.ok) {
+            console.error('Groq API Error Details:', aiData);
+          }
+
           const replyText = aiData.choices?.[0]?.message?.content || 'Sorry, I could not process your request.';
 
           // Send message reply back to WhatsApp
@@ -67,7 +73,7 @@ export default async function handler(req, res) {
           console.log('WhatsApp API Response:', waResponseData);
 
         } catch (error) {
-          console.error('Detailed Error processing message:', error.message || error);
+          console.error('Detailed Error processing message:', error.response?.data || error.message || error);
         }
       }
 
