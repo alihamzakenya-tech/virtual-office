@@ -29,18 +29,16 @@ export default async function handler(req, res) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-70b-versatile',
             messages: [
-              { role: 'system', content: 'You are a helpful AI assistant for marketing and logistics.' },
+              { role: 'system', content: 'You are a helpful professional AI virtual assistant for marketing and logistics.' },
               { role: 'user', content: userMsg }
             ]
           })
         });
 
         const aiData = await aiResponse.json();
-        console.log('Groq API Response:', JSON.stringify(aiData));
-
-        const replyText = aiData.choices?.[0]?.message?.content || JSON.stringify(aiData);
+        const replyText = aiData.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
 
         const waToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
         await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
