@@ -14,6 +14,7 @@ export default async function handler(req, res) {
   // 2. Incoming Messages Processing (POST)
   if (req.method === 'POST') {
     const body = req.body;
+    console.log('Incoming Webhook Body:', JSON.stringify(body, null, 2));
 
     if (body.object === 'whatsapp_business_account') {
       const entry = body.entry?.[0];
@@ -47,7 +48,6 @@ export default async function handler(req, res) {
 
           const aiData = await aiResponse.json();
           
-          // Log Groq error if API call fails
           if (!aiResponse.ok) {
             console.error('Groq API Error Details:', aiData);
           }
@@ -75,6 +75,8 @@ export default async function handler(req, res) {
         } catch (error) {
           console.error('Detailed Error processing message:', error.response?.data || error.message || error);
         }
+      } else {
+        console.log('Received webhook event, but no text message found in payload.');
       }
 
       return res.status(200).json({ status: 'EVENT_RECEIVED' });
