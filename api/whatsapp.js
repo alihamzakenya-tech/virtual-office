@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         const userMsg = message.text.body;
 
         try {
-          // AI Response generation via Groq Llama-3.1-8b-instant
+          // AI Response generation via Groq Llama model
           const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: 'llama-3.1-8b-instant',
+              model: 'llama-3.3-70b-versatile',
               messages: [
                 {
                   role: 'system',
