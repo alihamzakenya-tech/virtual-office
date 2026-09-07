@@ -14,19 +14,20 @@ export default async function handler(req, res) {
   // 2. Incoming Messages Processing (POST)
   if (req.method === 'POST') {
     const body = req.body;
-    console.log('Incoming Webhook Body:', JSON.stringify(body, null, 2));
 
-    if (body.object === 'whatsapp_business_account') {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const message = value?.messages?.[0];
+    try {
+      if (body.object === 'whatsapp_business_account') {
+        const entry = body.entry?.[0];
+        const changes = entry?.changes?.[0];
+        const value = changes?.value;
+        
+        // Check if it's a message event
+        const message = value?.messages?.[0];
 
-      if (message && message.type === 'text') {
-        const from = message.from; // User WhatsApp Number
-        const userMsg = message.text.body;
+        if (message && message.type === 'text') {
+          const from = message.from; // User WhatsApp Number
+          const userMsg = message.text.body;
 
-        try {
           // AI Response generation via Groq Llama model
           const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -71,15 +72,16 @@ export default async function handler(req, res) {
 
           const waResponseData = await waResponse.json();
           console.log('WhatsApp API Response:', waResponseData);
-
-        } catch (error) {
-          console.error('Detailed Error processing message:', error.response?.data || error.message || error);
+        } else {
+          // This handles status updates (sent, delivered, read) smoothly without errors
+          console.log('Received non-text or status webhook event, skipping AI processing.');
         }
-      } else {
-        console.log('Received webhook event, but no text message found in payload.');
-      }
 
-      return res.status(200).json({ status: 'EVENT_RECEIVED' });
+        return res.status(200).json({ status: 'EVENT_RECEIVED' });
+      }
+    } catch (error) {
+      console.error('Detailed Error processing webhook:', error.message || error);
+      return res.status(200).json({ status: 'ERROR_LOGGED' });
     }
 
     return res.status(404).end();
