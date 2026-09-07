@@ -21,7 +21,9 @@ export default async function handler(req, res) {
         const changes = entry?.changes?.[0];
         const value = changes?.value;
         
-        // Check if it's a message event
+        // Print the full value object to inspect what Meta is sending
+        console.log('Webhook Value Object:', JSON.stringify(value, null, 2));
+
         const message = value?.messages?.[0];
 
         if (message && message.type === 'text') {
@@ -73,8 +75,7 @@ export default async function handler(req, res) {
           const waResponseData = await waResponse.json();
           console.log('WhatsApp API Response:', waResponseData);
         } else {
-          // This handles status updates (sent, delivered, read) smoothly without errors
-          console.log('Received non-text or status webhook event, skipping AI processing.');
+          console.log('Event received without text message payload.');
         }
 
         return res.status(200).json({ status: 'EVENT_RECEIVED' });
