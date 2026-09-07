@@ -20,34 +20,21 @@ export default async function handler(req, res) {
 
       if (message && message.type === 'text') {
         const from = message.from;
-        const userMsg = message.text.body;
+        const userMsg = message.text.body.toLowerCase().trim();
 
         let replyText = '';
 
-        try {
-          // Using Hugging Face free inference API as a reliable fallback
-          const aiResponse = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              inputs: `[INST] You are a professional AI virtual assistant for marketing and logistics. Reply clearly and concisely to: ${userMsg} [/INST]`,
-              parameters: { max_new_tokens: 150, return_full_text: false }
-            })
-          });
-
-          const aiData = await aiResponse.json();
-          if (Array.isArray(aiData) && aiData[0]?.generated_text) {
-            replyText = aiData[0].generated_text.trim();
-          } else if (aiData.error) {
-            // Fallback smart response if rate-limited
-            replyText = `Virtual Assistant received: "${userMsg}". All systems operational!`;
-          } else {
-            replyText = `Hello! I have received your message: "${userMsg}". How can I help you with marketing or logistics today?`;
-          }
-        } catch (apiErr) {
-          replyText = `Welcome! Received your message: "${userMsg}".`;
+        // Smart Keyword-Based Logistics & Marketing Automation Engine
+        if (userMsg.includes('hi') || userMsg.includes('hello') || userMsg.includes('salamu')) {
+          replyText = 'Hello! Welcome to our Logistics & Marketing Assistant. How can we assist you with your shipments, tracking, or orders today?';
+        } else if (userMsg.includes('price') || userMsg.includes('cost') || userMsg.includes('rates') || userMsg.includes('bei')) {
+          replyText = 'Our delivery and service rates are optimized for speed and reliability. Please share your pickup and drop-off locations for a precise quote!';
+        } else if (userMsg.includes('track') || userMsg.includes('status') || userMsg.includes('where')) {
+          replyText = 'To track your package or number plate delivery, please reply with your tracking ID or reference number.';
+        } else if (userMsg.includes('logistics') || userMsg.includes('delivery') || userMsg.includes('courier')) {
+          replyText = 'We provide fast and secure transport and courier services across Kenya. Let us know your requirements!';
+        } else {
+          replyText = `Thank you for reaching out! We have received your message: "${message.text.body}". Our team will get back to you shortly.`;
         }
 
         const waToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
